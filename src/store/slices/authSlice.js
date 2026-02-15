@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import API_URL from '../../constants/config';
+import BASE_URL from '../../constants/config';
 
 // Async Thunks for API calls
 export const login = createAsyncThunk(
@@ -7,7 +7,7 @@ export const login = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
   
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetch(`${BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -19,15 +19,14 @@ export const login = createAsyncThunk(
 
 
       if (!response.ok) {
-        console.error('Login Failed Message:', data.message);
+       
         return rejectWithValue(data.message || 'Login failed');
       }
 
-      console.log('Login Successful!');
       // Backend returns: { userId, email, token }
       return { user: { id: data.userId, email: data.email }, token: data.token };
     } catch (error) {
-      console.error('Login Fetch Error:', error.message);
+
       return rejectWithValue(error.message);
     }
   }

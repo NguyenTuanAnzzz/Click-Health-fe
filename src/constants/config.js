@@ -1,34 +1,27 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const getApiUrl = () => {
-  // 1. If you set an environment variable, use it.
+const getBaseUrl = () => {
+  // 1. Priority: Environment Variable (.env)
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  // 2. Dynamic Host Detection (Best for Development with physical devices)
+  // 2. Dynamic Host Detection
   const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-  
   if (debuggerHost) {
-    // debuggerHost is like "192.168.1.10:8081"
     const ip = debuggerHost.split(':')[0];
-    return `http://${ip}:9999/api/users`;
+    return `http://${ip}:9999`;
   }
 
-  // 3. Fallbacks for Simulators/Emulators if debuggerHost isn't available
+  // 3. Fallbacks
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:9999/api/users';
+    return 'http://10.0.2.2:9999';
   }
-
-  // iOS Simulator or Web
-  return 'http://localhost:9999/api/users';
+  return 'http://localhost:9999';
 };
 
-const API_URL = getApiUrl();
+// Luôn nối thêm path cố định của Users API
+const BASE_URL = getBaseUrl();
 
-console.log('--- API CONFIG ---');
-console.log('Platform:', Platform.OS);
-console.log('Resolved API_URL:', API_URL);
-
-export default API_URL;
+export default BASE_URL;
