@@ -28,15 +28,19 @@ const VerifyEmailScreen = () => {
   }, [error, clearError]);
 
   const handleVerify = async () => {
-    if (!email) {
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedCode = code?.toString().trim();
+
+    if (!normalizedEmail) {
       Alert.alert('Error', 'Email is required');
       return;
     }
-    if (!code || code.length !== 6) {
+    if (!normalizedCode || normalizedCode.length !== 6) {
       Alert.alert('Error', 'Please enter a valid 6-digit code');
       return;
     }
-    await verifyEmail(email, code);
+    const result = await verifyEmail(normalizedEmail, normalizedCode);
+    console.log('[VERIFY_SCREEN] verify result status:', result?.meta?.requestStatus);
   };
 
   const handleResend = () => {

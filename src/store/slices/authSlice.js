@@ -1,13 +1,14 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import BASE_URL from '../../constants/config';
+import API_URL from '../../constants/apiConfig.js';
 
 // Async Thunks for API calls
 export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-  
-      const response = await fetch(`${BASE_URL}/login`, {
+      const loginUrl = `${API_URL}/users/login`;
+
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -15,11 +16,19 @@ export const login = createAsyncThunk(
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (parseError) {
+
+      }
+
+
 
 
       if (!response.ok) {
-       
+
         return rejectWithValue(data.message || 'Login failed');
       }
 
@@ -36,18 +45,12 @@ export const register = createAsyncThunk(
   'auth/register',
   async ({ fullName, email, password, age, gender }, { rejectWithValue }) => {
     try {
-      const formData = new FormData();
-      formData.append('fullName', fullName);
-      formData.append('email', email);
-      formData.append('password', password);
-      formData.append('age', age || '25');
-      formData.append('gender', gender || 'MALE');
-
-      console.log('URL:', `${API_URL}/signup`);
-      
-      const response = await fetch(`${API_URL}/signup`, {
+      const response = await fetch(`${API_URL}/users/signup`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName, email, password, age, gender }),
       });
 
       const data = await response.json();
@@ -69,27 +72,42 @@ export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
   async ({ email, code }, { rejectWithValue }) => {
     try {
+      const normalizedEmail = email?.trim().toLowerCase();
+      const normalizedCode = code?.toString().trim();
+      const verifyUrl = `${API_URL}/users/verify-email`;
 
+      console.log('[AUTH][VERIFY] Request URL:', verifyUrl);
+      console.log('[AUTH][VERIFY] Request payload:', { email: normalizedEmail, otp: normalizedCode });
 
-      const response = await fetch(`${API_URL}/verify-email`, {
+      const response = await fetch(verifyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, otp: code }),
+        body: JSON.stringify({ email: normalizedEmail, otp: normalizedCode }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (parseError) {
+        console.log('[AUTH][VERIFY] Response parse error:', parseError?.message);
+        console.log('[AUTH][VERIFY] Raw response:', rawText);
+      }
 
+      console.log('[AUTH][VERIFY] Status:', response.status);
+      console.log('[AUTH][VERIFY] Response data:', data);
 
       if (!response.ok) {
+        console.log('[AUTH][VERIFY] Failed message:', data?.message || 'Verification failed');
         return rejectWithValue(data.message || 'Verification failed');
       }
 
 
       return { user: { id: data.userId, email: data.email }, token: data.token };
     } catch (error) {
-
+      console.log('[AUTH][VERIFY] Network/Unhandled error:', error?.message);
       return rejectWithValue(error.message);
     }
   }

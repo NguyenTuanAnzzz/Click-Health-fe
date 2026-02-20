@@ -6,6 +6,7 @@ import { COLORS, SIZES } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 
+
 const RegisterScreen = () => {
   const navigation = useNavigation();
   const { register, isLoading, error, clearError, registrationStep } = useAuth();
@@ -52,7 +53,10 @@ const RegisterScreen = () => {
       return;
     }
 
-    await register(fullName, email, password, age, gender.toUpperCase());
+    const result = await register(fullName, email, password, age, gender.toUpperCase());
+    if (result?.meta?.requestStatus === 'fulfilled') {
+      navigation.navigate('VerifyEmail');
+    }
   };
 
   return (
@@ -83,7 +87,7 @@ const RegisterScreen = () => {
             autoCapitalize="none"
           />
           <View style={styles.row}>
-            <View style={{ flex: 1, marginRight: 8 }}>
+            <View style={styles.inputColumnLeft}>
               <Input
                 label="Age"
                 placeholder="Age"
@@ -92,14 +96,30 @@ const RegisterScreen = () => {
                 keyboardType="number-pad"
               />
             </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Input
-                label="Gender"
-                placeholder="MALE/FEMALE"
-                value={gender}
-                onChangeText={setGender}
-                autoCapitalize="characters"
-              />
+            <View style={styles.inputColumnRight}>
+              <Text style={styles.genderLabel}>Gender</Text>
+              <View style={styles.genderOptions}>
+                {GENDER_OPTIONS.map((option, index) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.genderOption,
+                      index === GENDER_OPTIONS.length - 1 && styles.genderOptionLast,
+                      gender === option && styles.genderOptionSelected,
+                    ]}
+                    onPress={() => setGender(option)}
+                  >
+                    <Text
+                      style={[
+                        styles.genderOptionText,
+                        gender === option && styles.genderOptionTextSelected,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
           <Input
@@ -121,7 +141,7 @@ const RegisterScreen = () => {
             title="Register" 
             onPress={handleRegister} 
             loading={isLoading}
-            style={{ marginTop: 20 }}
+            style={styles.registerButton}
           />
 
           <View style={styles.footer}>
@@ -164,9 +184,56 @@ const styles = StyleSheet.create({
   form: {
     width: '100%',
   },
+  inputColumnLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  inputColumnRight: {
+    flex: 1,
+    marginLeft: 8,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  genderLabel: {
+    fontSize: 14,
+    color: COLORS.black,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  genderOptions: {
+    flexDirection: 'row',
+    height: 50,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+    borderRadius: SIZES.radius,
+    overflow: 'hidden',
+    backgroundColor: COLORS.white,
+  },
+  genderOption: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: COLORS.lightGray,
+  },
+  genderOptionLast: {
+    borderRightWidth: 0,
+  },
+  genderOptionSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  genderOptionText: {
+    fontSize: 12,
+    color: COLORS.darkGray,
+    fontWeight: '600',
+  },
+  genderOptionTextSelected: {
+    color: COLORS.white,
+  },
+  registerButton: {
+    marginTop: 20,
   },
   footer: {
     flexDirection: 'row',
@@ -183,5 +250,7 @@ const styles = StyleSheet.create({
     fontSize: SIZES.body,
   },
 });
+
+const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'];
 
 export default RegisterScreen;
