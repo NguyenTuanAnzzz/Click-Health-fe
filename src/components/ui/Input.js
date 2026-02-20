@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TextInput, StyleSheet, View, Text } from 'react-native';
 import { COLORS, SIZES } from '../../constants/theme';
 
@@ -61,4 +61,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Input;
+export default memo(Input);
