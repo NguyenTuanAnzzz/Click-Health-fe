@@ -1,212 +1,150 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import API_URL from '../../constants/apiConfig.js';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
+import API_URL from "../../constants/apiConfig";
 
-// Async Thunks for API calls
-export const login = createAsyncThunk(
-  'auth/login',
-  async ({ email, password }, { rejectWithValue }) => {
-    try {
-      const loginUrl = `${API_URL}/users/login`;
-
-      const response = await fetch(loginUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const rawText = await response.text();
-      let data = {};
-      try {
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch (parseError) {
-
-      }
-
-
-
-
-      if (!response.ok) {
-
-        return rejectWithValue(data.message || 'Login failed');
-      }
-
-      // Backend returns: { userId, email, token }
-      return { user: { id: data.userId, email: data.email }, token: data.token };
-    } catch (error) {
-
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const register = createAsyncThunk(
-  'auth/register',
-  async ({ fullName, email, password, age, gender }, { rejectWithValue }) => {
-    try {
-      const response = await fetch(`${API_URL}/users/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fullName, email, password, age, gender }),
-      });
-
-      const data = await response.json();
-
-
-      if (!response.ok) {
-        return rejectWithValue(data.message || 'Registration failed');
-      }
-
-      return { email };
-    } catch (error) {
-
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const verifyEmail = createAsyncThunk(
-  'auth/verifyEmail',
-  async ({ email, code }, { rejectWithValue }) => {
-    try {
-      const normalizedEmail = email?.trim().toLowerCase();
-      const normalizedCode = code?.toString().trim();
-      const verifyUrl = `${API_URL}/users/verify-email`;
-
-      console.log('[AUTH][VERIFY] Request URL:', verifyUrl);
-      console.log('[AUTH][VERIFY] Request payload:', { email: normalizedEmail, otp: normalizedCode });
-
-      const response = await fetch(verifyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: normalizedEmail, otp: normalizedCode }),
-      });
-
-      const rawText = await response.text();
-      let data = {};
-      try {
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch (parseError) {
-        console.log('[AUTH][VERIFY] Response parse error:', parseError?.message);
-        console.log('[AUTH][VERIFY] Raw response:', rawText);
-      }
-
-      console.log('[AUTH][VERIFY] Status:', response.status);
-      console.log('[AUTH][VERIFY] Response data:', data);
-
-      if (!response.ok) {
-        console.log('[AUTH][VERIFY] Failed message:', data?.message || 'Verification failed');
-        return rejectWithValue(data.message || 'Verification failed');
-      }
-
-
-      return { user: { id: data.userId, email: data.email }, token: data.token };
-    } catch (error) {
-      console.log('[AUTH][VERIFY] Network/Unhandled error:', error?.message);
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const logout = createAsyncThunk(
-  'auth/logout',
-  async (_, { rejectWithValue }) => {
-    try {
-      // Client-side logout only for JWT
-      return;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-const initialState = {
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
-  registrationStep: 'idle', // idle, registered, verified
-  registeredEmail: null, // Store email after successful registration to use in verification
+const getErrorMessage = (error, fallback) => {
+  return error?.response?.data?.message || error?.message || fallback;
 };
 
+export const register = createAsyncThunk(
+  "auth/register",
+  async (userData, thunkAPI) => {
+    try {
+      const res = await axios.post(`${API_URL}/users/signup`, userData);
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getErrorMessage(error, "Register failed"),
+      );
+    }
+  },
+);
+
+export const login = createAsyncThunk(
+  "auth/login",
+  async (credentials, thunkAPI) => {
+    try {
+      const res = await axios.post(`${API_URL}/users/login`, credentials);
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(getErrorMessage(error, "Login failed"));
+    }
+  },
+);
+
+export const verifyOtp = createAsyncThunk(
+  "auth/verifyOtp",
+  async (data, thunkAPI) => {
+    try {
+      const res = await axios.post(`${API_URL}/users/verify-otp`, data);
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getErrorMessage(error, "Verify OTP failed"),
+      );
+    }
+  },
+);
+
+
+export const resendOtp  = createAsyncThunk(
+  "auth/resendOtp",
+  async (emailData, thunkAPI) => {
+    try {
+      const res = await axios.post(`${API_URL}/users/resend-otp`, emailData);
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getErrorMessage(error, "Resend OTP failed"),
+      );
+    }
+  },
+);
+
 const authSlice = createSlice({
-  name: 'auth',
-  initialState,
+  name: "auth",
+  initialState: {
+    user: null,
+    token: null,
+    loading: false,
+    error: null,
+    isOtpVerified: false,
+  },
   reducers: {
-    clearError: (state) => {
+    logout: (state) => {
+      state.user = null;
+      state.token = null;
       state.error = null;
-    },
-    resetRegistration: (state) => {
-      state.registrationStep = 'idle';
-      state.registeredEmail = null;
+      state.loading = false;
+      state.isOtpVerified = false;
     },
   },
   extraReducers: (builder) => {
-    // Login
-    builder.addCase(login.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(login.fulfilled, (state, action) => {
-      state.isLoading = false;
-      state.isAuthenticated = true;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-    });
-    builder.addCase(login.rejected, (state, action) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    });
+    builder
+      .addCase(login.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(login.fulfilled, (state, action) => {
+        state.loading = false;
+        state.token = action.payload || null;
+        state.error = null;
+      })
+      .addCase(login.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
 
-    // Register
-    builder.addCase(register.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(register.fulfilled, (state, action) => {
-      state.isLoading = false;
-      state.registrationStep = 'registered';
-      state.registeredEmail = action.payload.email;
-    });
-    builder.addCase(register.rejected, (state, action) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    });
+      .addCase(register.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.isOtpVerified = false;
+      })
+      .addCase(register.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = {
+          email: action.payload.email,
+        };
+        state.error = null;
+      })
+      .addCase(register.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
 
-    // Verify Email
-    builder.addCase(verifyEmail.pending, (state) => {
-      state.isLoading = true;
-      state.error = null;
-    });
-    builder.addCase(verifyEmail.fulfilled, (state, action) => {
-      state.isLoading = false;
-      state.registrationStep = 'verified';
-      // Auto login after verification
-      state.isAuthenticated = true;
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-    });
-    builder.addCase(verifyEmail.rejected, (state, action) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    });
-
-    // Logout
-    builder.addCase(logout.fulfilled, (state) => {
-      state.user = null;
-      state.token = null;
-      state.isAuthenticated = false;
-      state.registrationStep = 'idle';
-      state.registeredEmail = null;
-    });
+      .addCase(verifyOtp.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(verifyOtp.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        state.isOtpVerified = true
+      })
+      .addCase(verifyOtp.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(resendOtp.pending, (state, action) =>{
+        state.loading = true;
+        state.isOtpVerified = false;
+        state.error = null;
+      })
+      .addCase(resendOtp.fulfilled,(state, action) =>{
+        state.loading = false;
+        state.isOtpVerified = false;
+        state.user = {
+          email: action.payload.email,
+        };
+        state.error = null;
+      })
+      .addCase(resendOtp.rejected,(state, action) =>{
+        state.loading = false;
+        state.error = action.payload
+      })
+      ;
   },
 });
 
-export const { clearError, resetRegistration } = authSlice.actions;
+export const { logout } = authSlice.actions;
 export default authSlice.reducer;

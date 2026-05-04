@@ -1,132 +1,136 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
-import { COLORS, SIZES } from '../../constants/theme';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { COLORS } from "../../constants/theme";
+import { useNavigation } from "@react-navigation/native";
+import { useSelector, useDispatch } from "react-redux";
+
+import AuthLayout from "../../layouts/AuthLayout";
+import Input from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
+import Footer from "../../components/ui/Footer";
+import Error from "../../components/ui/Error";
+import { login } from "../../store/slices/authSlice";
 
 const LoginScreen = () => {
   const navigation = useNavigation();
-  const { login, isLoading, error, clearError, isAuthenticated } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (error) {
-      Alert.alert('Login Failed', error);
-      clearError();
-    }
-  }, [error, clearError, isAuthenticated, isLoading]);
+  const { token, loading, error } = useSelector((state) => state.auth);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
-      return;
-    }
-    await login(email, password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = () => {
+    dispatch(login({ email, password }));
   };
 
+  useEffect(() => {
+    if (token) {
+      navigation.navigate("Home");
+    }
+  }, [token, navigation]);
+
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to continue to Click Health</Text>
-        </View>
+    <AuthLayout tagline="Ứng dụng chăm sóc sức khỏe">
+      <View style={styles.form}>
+        <Text style={styles.formTitle}>Chào mừng!</Text>
 
-        <View style={styles.form}>
-          <Input
-            label="Email Address"
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <Input
-            label="Password"
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+        <Input
+          label="Email"
+          nameIcon="mail"
+          sizeIcon={20}
+          placeholder="Nhập email của bạn"
+          keyboard="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        <Input
+          label="Mật khẩu"
+          nameIcon="lock"
+          sizeIcon={20}
+          placeholder="Nhập mật khẩu"
+          secure={true}
+          value={password}
+          onChangeText={setPassword}
+          rightIcon="eye"
+        />
+
+        <View style={styles.optionsRow}>
+          <TouchableOpacity style={styles.rememberRow} activeOpacity={0.85}>
+            <View style={styles.checkbox}>
+              <Feather name="check" size={14} color={COLORS.white} />
+            </View>
+            <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
           </TouchableOpacity>
 
-          <Button 
-            title="Login" 
-            onPress={handleLogin} 
-            loading={isLoading}
-          />
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkText}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity activeOpacity={0.8}>
+            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <Button
+          title={loading ? "Đang đăng nhập..." : "Đăng nhập"}
+          nameIcon="arrow-right"
+          sizeIcon={18}
+          handle={handleLogin}
+        />
+
+        {error && <Error title="Đăng nhập thất bại" desc={error} />}
+      </View>
+
+      <Footer
+        titleLeft="Chưa có tài khoản?"
+        titleRight="Đăng ký ngay"
+        goToLink={() => navigation.navigate("Register")}
+      />
+    </AuthLayout>
   );
 };
 
+export default LoginScreen;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: SIZES.padding,
-    justifyContent: 'center',
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: SIZES.h1,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: SIZES.body,
-    color: COLORS.darkGray,
-    textAlign: 'center',
-  },
   form: {
-    width: '100%',
+    width: "100%",
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
+  formTitle: {
+    marginBottom: 24,
+    fontSize: 24,
+    fontWeight: "800",
+    color: COLORS.black,
+  },
+  optionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 2,
     marginBottom: 20,
   },
-  forgotPasswordText: {
-    color: COLORS.primary,
-    fontSize: SIZES.body,
+  rememberRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
   },
-  footerText: {
+  rememberText: {
+    fontSize: 14,
+    fontWeight: "500",
     color: COLORS.darkGray,
-    fontSize: SIZES.body,
   },
-  linkText: {
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: "700",
     color: COLORS.primary,
-    fontWeight: 'bold',
-    fontSize: SIZES.body,
   },
 });
-
-export default LoginScreen;
