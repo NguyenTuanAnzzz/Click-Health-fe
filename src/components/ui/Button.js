@@ -1,58 +1,35 @@
-import React, { memo } from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
 
-const Button = ({ title, onPress, variant = 'primary', loading = false, disabled = false, style }) => {
-  const getBackgroundColor = () => {
-    if (disabled) return COLORS.lightGray;
-    if (variant === 'secondary') return COLORS.white;
-    return COLORS.primary;
-  };
-
-  const getTextColor = () => {
-    if (disabled) return COLORS.darkGray;
-    if (variant === 'secondary') return COLORS.primary;
-    return COLORS.white;
-  };
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.container,
-        { backgroundColor: getBackgroundColor() },
-        variant === 'secondary' && styles.secondaryBorder,
-        style,
-      ]}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-    >
-      {loading ? (
-        <ActivityIndicator color={getTextColor()} />
-      ) : (
-        <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
-      )}
-    </TouchableOpacity>
-  );
-};
+export default function Button(props){
+    return (
+        <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9} onPress={props.handle}>
+            <Text style={styles.primaryButtonText}>{props.title}</Text>
+            <Feather name={props.nameIcon} size={props.sizeIcon} color={COLORS.white} />
+          </TouchableOpacity>
+    )
+}
 
 const styles = StyleSheet.create({
-  container: {
-    height: 50,
-    borderRadius: SIZES.radius,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    marginVertical: 10,
-  },
-  secondaryBorder: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});
-
-export default memo(Button);
+     primaryButton: {
+        minHeight: 56,
+        borderRadius: 20,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+        elevation: 6,
+      },
+      primaryButtonText: {
+        marginRight: 10,
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.white,
+      },
+})

@@ -1,151 +1,382 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
-import { COLORS, SIZES } from '../../constants/theme';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../hooks/useAuth';
+import React, { useRef, useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Animated,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSelector, useDispatch } from "react-redux";
+
+import { COLORS } from "../../constants/theme";
+import AuthLayout from "../../layouts/AuthLayout";
+import Button from "../../components/ui/Button";
+import Footer from "../../components/ui/Footer";
+import Error from "../../components/ui/Error";
+import { verifyOtp } from "../../store/slices/authSlice";
+import { resendOtp } from "../../store/slices/authSlice";
+const OTP_EXPIRE_TIME = 60;
 
 const VerifyEmailScreen = () => {
   const navigation = useNavigation();
-  const { verifyEmail, isLoading, error, clearError, registrationStep, registeredEmail } = useAuth();
-  const [code, setCode] = useState('');
-  const [email, setEmail] = useState(registeredEmail || '');
+  const dispatch = useDispatch();
+  const route = useRoute();
+
+  const { loading, error, isOtpVerified, user } = useSelector((state) => state.auth);
+
+  const email = route?.params?.email || user?.email ;
+
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [timeLeft, setTimeLeft] = useState(OTP_EXPIRE_TIME);
+
+  const inputsRef = useRef([]);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const hasAutoVerified = useRef(false);
+
+  const otpValue = otp.join("");
+  const isOtpFull = otpValue.length === 6;
+  const isExpired = timeLeft <= 0;
 
   useEffect(() => {
-    if (registrationStep === 'verified') {
-      Alert.alert('Success', 'Email verified successfully!', [
-        { text: 'OK', onPress: () => {} } // Navigation is handled by RootNavigator state change
-      ]);
-    }
-  }, [registrationStep, navigation]);
+    const focusTimer = setTimeout(() => {
+      inputsRef.current[0]?.focus();
+    }, 300);
+
+    return () => clearTimeout(focusTimer);
+  }, []);
 
   useEffect(() => {
-    if (error) {
-      Alert.alert('Verification Failed', error);
-      clearError();
-    }
-  }, [error, clearError]);
+    if (timeLeft <= 0) return;
 
-  const handleVerify = async () => {
-    const normalizedEmail = email?.trim().toLowerCase();
-    const normalizedCode = code?.toString().trim();
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => Math.max(prev - 1, 0));
+    }, 1000);
 
-    if (!normalizedEmail) {
-      Alert.alert('Error', 'Email is required');
-      return;
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  useEffect(() => {
+    if (isOtpVerified) {
+      navigation.navigate("Login");
     }
-    if (!normalizedCode || normalizedCode.length !== 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit code');
-      return;
+  }, [isOtpVerified, navigation]);
+
+  useEffect(() => {
+    if (!error) return;
+
+    Animated.sequence([
+      Animated.timing(shakeAnim, {
+        toValue: 10,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -10,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 8,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 60,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [error, shakeAnim]);
+
+  useEffect(() => {
+    if (
+      isOtpFull &&
+      email &&
+      !isExpired &&
+      !loading &&
+      !hasAutoVerified.current
+    ) {
+      hasAutoVerified.current = true;
+      handleVerify();
     }
-    const result = await verifyEmail(normalizedEmail, normalizedCode);
-    console.log('[VERIFY_SCREEN] verify result status:', result?.meta?.requestStatus);
+
+    if (!isOtpFull) {
+      hasAutoVerified.current = false;
+    }
+  }, [isOtpFull, email, isExpired, loading]);
+
+  const formatTime = (time) => {
+    const min = Math.floor(time / 60);
+    const sec = time % 60;
+
+    return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
 
-  const handleResend = () => {
-    Alert.alert('Info', 'Resend functionality not implemented in this demo');
+  const handleChangeOtp = (text, index) => {
+    if (isExpired) return;
+
+    const sanitizedValue = text.replace(/[^0-9]/g, "");
+
+    if (sanitizedValue.length > 1) {
+      const digits = sanitizedValue.slice(0, 6).split("");
+
+      setOtp((prev) => {
+        const next = [...prev];
+
+        digits.forEach((digit, i) => {
+          next[i] = digit;
+        });
+
+        return next;
+      });
+
+      const nextIndex = Math.min(digits.length, 5);
+      inputsRef.current[nextIndex]?.focus();
+      return;
+    }
+
+    setOtp((prev) => {
+      const next = [...prev];
+      next[index] = sanitizedValue;
+      return next;
+    });
+
+    if (sanitizedValue && index < 5) {
+      inputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handleBackspace = (event, index) => {
+    if (event.nativeEvent.key === "Backspace" && !otp[index] && index > 0) {
+      inputsRef.current[index - 1]?.focus();
+    }
+  };
+
+
+  const handleVerify = () => {
+    if (!email || !isOtpFull || isExpired || loading) return;
+
+    dispatch(
+      verifyOtp({
+        email,
+        otp: otpValue,
+      })
+    );
+  };
+
+  const handleResendCode = () => {
+    if (timeLeft > 0) return;
+    dispatch(resendOtp({ email }))
+    setOtp(["", "", "", "", "", ""]);
+    setTimeLeft(OTP_EXPIRE_TIME);
+    hasAutoVerified.current = false;
+
+    setTimeout(() => {
+      inputsRef.current[0]?.focus();
+    }, 100);
+
+    // Nếu backend có API resend OTP thì mở dòng này:
+    // dispatch(resendOtp({ email }));
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <AuthLayout
+      tagline="Xác thực tài khoản của bạn"
+      icon="shield-checkmark-outline"
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Verify Your Email</Text>
-          <Text style={styles.subtitle}>
-            Please enter the verification code sent to your email address.
+      <View style={styles.form}>
+        <Text style={styles.formTitle}>Xác thực email</Text>
+
+        <Text style={styles.description}>
+          Nhập mã xác thực gồm 6 số đã được gửi đến email của bạn.
+        </Text>
+
+        {!!email && (
+          <View style={styles.emailBox}>
+            <Feather name="mail" size={20} color={COLORS.primary} />
+            <Text style={styles.emailText}>{email}</Text>
+          </View>
+        )}
+
+        <Animated.View
+          style={[
+            styles.otpContainer,
+            {
+              transform: [{ translateX: shakeAnim }],
+            },
+          ]}
+        >
+          {otp.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => (inputsRef.current[index] = ref)}
+              value={digit}
+              onChangeText={(text) => handleChangeOtp(text, index)}
+              onKeyPress={(event) => handleBackspace(event, index)}
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!isExpired && !loading}
+              style={[
+                styles.otpInput,
+                digit && styles.otpInputFilled,
+                isExpired && styles.otpInputDisabled,
+              ]}
+            />
+          ))}
+        </Animated.View>
+
+        <View style={styles.timerBox}>
+          <Feather name="clock" size={16} color="#EA580C" />
+          <Text style={styles.timerText}>
+            {isExpired ? "Mã xác thực đã hết hạn" : "Mã hết hạn trong "}
+            {!isExpired && (
+              <Text style={styles.timerBold}>{formatTime(timeLeft)}</Text>
+            )}
           </Text>
         </View>
 
-        <View style={styles.form}>
-           <Input
-            label="Email"
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!registeredEmail} // Disable if we have it from registration
-          />
+        <Button
+          title={loading ? "Đang xác thực..." : "Xác thực"}
+          nameIcon="check-circle"
+          sizeIcon={18}
+          handle={handleVerify}
+          disabled={!isOtpFull || loading || isExpired}
+        />
 
-          <Input
-            label="Verification Code"
-            placeholder="Enter code"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            maxLength={6}
-            style={{ textAlign: 'center', letterSpacing: 5, fontSize: 24 }}
-          />
+        {error && <Error title="Xác thực thất bại" desc={error} />}
 
-          <Button 
-            title="Verify Email" 
-            onPress={handleVerify} 
-            loading={isLoading}
-            style={{ marginTop: 20 }}
-          />
+        <TouchableOpacity
+          style={[
+            styles.resendButton,
+            timeLeft <= 0 && styles.resendButtonActive,
+          ]}
+          activeOpacity={0.85}
+          disabled={timeLeft > 0}
+          onPress={handleResendCode}
+        >
+          <Text
+            style={[
+              styles.resendText,
+              timeLeft > 0 && styles.resendTextDisabled,
+            ]}
+          >
+            {timeLeft > 0
+              ? `Gửi lại sau ${formatTime(timeLeft)}`
+              : "Gửi lại mã"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-          <Button 
-            title="Resend Code" 
-            onPress={handleResend} 
-            variant="secondary"
-            style={{ marginTop: 10 }}
-          />
-
-          <View style={styles.footer}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.linkText}>Back to Register</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Footer
+        titleLeft="Nhập sai email?"
+        titleRight="Đăng ký lại"
+        goToLink={() => navigation.navigate("Register")}
+      />
+    </AuthLayout>
   );
 };
 
+export default VerifyEmailScreen;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: SIZES.padding,
-    justifyContent: 'center',
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: SIZES.h1,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: SIZES.body,
-    color: COLORS.darkGray,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
   form: {
-    width: '100%',
+    width: "100%",
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
+  formTitle: {
+    marginBottom: 10,
+    fontSize: 24,
+    fontWeight: "800",
+    color: COLORS.black,
   },
-  linkText: {
+  description: {
+    marginBottom: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: COLORS.darkGray,
+  },
+  emailBox: {
+    minHeight: 56,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(40, 107, 194, 0.18)",
+    backgroundColor: "rgba(40, 107, 194, 0.06)",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 22,
+  },
+  emailText: {
+    marginLeft: 12,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "700",
     color: COLORS.primary,
-    fontWeight: 'bold',
-    fontSize: SIZES.body,
+  },
+  otpContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 18,
+  },
+  otpInput: {
+    width: 48,
+    height: 56,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.inputBackground,
+    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "800",
+    color: COLORS.black,
+  },
+  otpInputFilled: {
+    borderColor: COLORS.primary,
+    backgroundColor: "rgba(40, 107, 194, 0.1)",
+    color: COLORS.primary,
+  },
+  otpInputDisabled: {
+    backgroundColor: "#F3F4F6",
+    color: "#9CA3AF",
+  },
+  timerBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+    gap: 6,
+  },
+  timerText: {
+    fontSize: 14,
+    color: "#EA580C",
+    fontWeight: "500",
+  },
+  timerBold: {
+    fontWeight: "800",
+  },
+  resendButton: {
+    minHeight: 54,
+    marginTop: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resendButtonActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: "rgba(40, 107, 194, 0.06)",
+  },
+  resendText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  resendTextDisabled: {
+    color: "#9CA3AF",
   },
 });
-
-export default VerifyEmailScreen;

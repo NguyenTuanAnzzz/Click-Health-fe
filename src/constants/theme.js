@@ -1,19 +1,23 @@
 export const COLORS = {
-  primary: '#20B2AA', // Light Sea Green - Calming and health-related
-  secondary: '#008080', // Teal
+  primary: '#286BC2',
+  primaryDark: '#1E5296',
+  secondary: '#84AAD8',
   white: '#FFFFFF',
-  black: '#333333',
-  gray: '#F5F5F5',
-  darkGray: '#A9A9A9',
-  lightGray: '#E0E0E0',
+  black: '#111827',
+  gray: '#F8FAFC',
+  darkGray: '#6B7280',
+  lightGray: '#E5E7EB',
+  border: '#EEF2F7',
+  inputBackground: '#F8FAFC',
+  textMuted: '#9CA3AF',
   error: '#FF6B6B',
   success: '#4CD964',
-  background: '#F8F9FA',
+  background: '#FFFFFF',
 };
 
 export const SIZES = {
-  padding: 20,
-  radius: 12,
+  padding: 24,
+  radius: 18,
   h1: 30,
   h2: 22,
   h3: 16,
