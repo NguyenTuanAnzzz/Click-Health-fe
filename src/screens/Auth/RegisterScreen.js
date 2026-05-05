@@ -16,7 +16,8 @@ import { register } from "../../store/slices/authSlice";
 const RegisterScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { loading, error, user } = useSelector((state) => state.auth);
 
   const [fullName, setFullName] = useState("");
@@ -117,10 +118,11 @@ const RegisterScreen = () => {
           nameIcon="lock"
           sizeIcon={20}
           placeholder="Nhập mật khẩu"
-          secure={true}
+          secure={!showPassword}
           value={password}
           onChangeText={setPassword}
-          rightIcon="eye"
+          rightIcon={showPassword ? "eye-off" : "eye"}
+          onPressRightIcon={() => setShowPassword((prev) => !prev)}
         />
 
         <Input
@@ -128,10 +130,11 @@ const RegisterScreen = () => {
           nameIcon="lock"
           sizeIcon={20}
           placeholder="Xác nhận mật khẩu"
-          secure={true}
+          secure={!showConfirmPassword}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          rightIcon="eye"
+          rightIcon={showConfirmPassword ? "eye-off" : "eye"}
+          onPressRightIcon={() => setShowConfirmPassword((prev) => !prev)}
         />
 
         {(localError || error) && (
@@ -155,11 +158,11 @@ const RegisterScreen = () => {
         </TouchableOpacity>
 
         <Button
-          title={loading ? "Đang đăng ký..." : "Đăng ký"}
+          title="Đăng ký"
           nameIcon="arrow-right"
           sizeIcon={18}
+          loading={loading}
           handle={handleRegister}
-          disabled={loading}
         />
       </View>
 
@@ -178,54 +181,70 @@ const styles = StyleSheet.create({
   form: {
     width: "100%",
   },
+
   formTitle: {
     marginBottom: 24,
     fontSize: 24,
     fontWeight: "800",
-    color: COLORS.black,
+    color: "#111827",
   },
+
   genderBlock: {
     marginBottom: 18,
   },
+
   genderLabel: {
     marginBottom: 10,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 13,
     fontWeight: "700",
-    color: COLORS.black,
+    color: "#111827",
   },
+
   genderRow: {
     flexDirection: "row",
     gap: 10,
   },
+
   termsRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     marginTop: 2,
     marginBottom: 22,
   },
+
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F5F6FA",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
+
   checkboxChecked: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: "#286BC2",
+    borderColor: "#286BC2",
+    shadowColor: "#286BC2",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 2,
   },
+
   termsText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: "500",
-    color: COLORS.darkGray,
+    color: "#6B7280",
   },
+
   linkText: {
-    color: COLORS.primary,
-    fontWeight: "700",
+    color: "#286BC2",
+    fontWeight: "800",
   },
 });
