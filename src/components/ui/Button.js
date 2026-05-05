@@ -1,35 +1,84 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, TextInput } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES } from '../../constants/theme';
+import React from "react";
+import {
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { COLORS } from "../../constants/theme";
 
-export default function Button(props){
-    return (
-        <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9} onPress={props.handle}>
+export default function Button(props) {
+  const isLoading = props.loading;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={props.handle}
+      disabled={isLoading}
+      style={[
+        styles.buttonWrapper,
+        isLoading && styles.buttonDisabled,
+        props.style,
+      ]}
+    >
+      <LinearGradient
+        colors={["#286BC2", "#4F8DD3", "#84AAD8"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.primaryButton}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <>
             <Text style={styles.primaryButtonText}>{props.title}</Text>
-            <Feather name={props.nameIcon} size={props.sizeIcon} color={COLORS.white} />
-          </TouchableOpacity>
-    )
+
+            {props.nameIcon && (
+              <Feather
+                name={props.nameIcon}
+                size={props.sizeIcon || 20}
+                color="#FFFFFF"
+              />
+            )}
+          </>
+        )}
+      </LinearGradient>
+    </TouchableOpacity>
+  );
 }
 
 const styles = StyleSheet.create({
-     primaryButton: {
-        minHeight: 56,
-        borderRadius: 20,
-        backgroundColor: COLORS.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 18,
-        elevation: 6,
-      },
-      primaryButtonText: {
-        marginRight: 10,
-        fontSize: 16,
-        fontWeight: '700',
-        color: COLORS.white,
-      },
-})
+  buttonWrapper: {
+    borderRadius: 16,
+    shadowColor: "#286BC2",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+
+  primaryButton: {
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    paddingHorizontal: 18,
+  },
+
+  primaryButtonText: {
+    marginRight: 10,
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+});

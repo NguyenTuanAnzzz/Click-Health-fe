@@ -1,25 +1,20 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
-import { Feather, Ionicons } from "@expo/vector-icons";
-import { COLORS, SIZES } from "../../constants/theme";
-import { useNavigation } from "@react-navigation/native";
-import { useSelector, useDispatch } from "react-redux";
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
+
 export default function Error(props) {
   return (
     <View style={styles.alertBox}>
-      <Feather name="alert-circle" size={20} color="#EF4444" />
+      <View style={styles.iconBox}>
+        <Feather name="alert-circle" size={18} color="#EF4444" />
+      </View>
 
       <View style={styles.alertContent}>
         <Text style={styles.alertTitle}>{props.title}</Text>
-        <Text style={styles.alertDesc}>{props.desc}</Text>
+
+        {!!props.desc && (
+          <Text style={styles.alertDesc}>{props.desc}</Text>
+        )}
       </View>
     </View>
   );
@@ -27,28 +22,43 @@ export default function Error(props) {
 
 const styles = StyleSheet.create({
   alertBox: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "rgba(220, 38, 38, 0.08)",
+    backgroundColor: "#FEF2F2",
     borderRadius: 16,
     padding: 14,
     marginTop: 12,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.2)",
+    borderColor: "#FECACA",
   },
+
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   alertContent: {
     marginLeft: 10,
     flex: 1,
   },
+
   alertTitle: {
     color: "#DC2626",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 3,
   },
+
   alertDesc: {
-    color: "#B91C1C",
+    color: "#991B1B",
     fontSize: 13,
+    fontWeight: "500",
     lineHeight: 18,
   },
 });

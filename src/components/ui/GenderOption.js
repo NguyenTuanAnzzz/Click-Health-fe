@@ -1,5 +1,6 @@
 import React from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "../../constants/theme";
 
 const GenderOption = (props) => {
@@ -7,13 +8,22 @@ const GenderOption = (props) => {
 
   return (
     <TouchableOpacity
-      style={[styles.option, isSelected && styles.optionActive]}
+      style={[styles.option, !isSelected && styles.optionInactive]}
       activeOpacity={0.85}
       onPress={() => props.onSelect(props.value)}
     >
-      <Text style={[styles.text, isSelected && styles.textActive]}>
-        {props.label}
-      </Text>
+      {isSelected ? (
+        <LinearGradient
+          colors={["#286BC2", "#4F8DD3", "#84AAD8"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        >
+          <Text style={styles.textActive}>{props.label}</Text>
+        </LinearGradient>
+      ) : (
+        <Text style={styles.text}>{props.label}</Text>
+      )}
     </TouchableOpacity>
   );
 };
@@ -23,23 +33,34 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 14,
+    overflow: "hidden",
+  },
+
+  optionInactive: {
     borderWidth: 1,
-    borderColor: "rgba(40, 107, 194, 0.25)",
-    backgroundColor: COLORS.white,
+    borderColor: "#EEF2F7",
+    backgroundColor: "#F5F6FA",
     alignItems: "center",
     justifyContent: "center",
   },
-  optionActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+
+  gradient: {
+    flex: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
+
   text: {
     fontSize: 14,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#6B7280",
   },
+
   textActive: {
-    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });
 

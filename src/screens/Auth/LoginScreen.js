@@ -15,6 +15,7 @@ import { login } from "../../store/slices/authSlice";
 const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const [showPassword, setShowPassword] = useState(false);
 
   const { token, loading, error } = useSelector((state) => state.auth);
 
@@ -27,6 +28,16 @@ const LoginScreen = () => {
 
   useEffect(() => {
     if (token) {
+      const parentNavigation = navigation.getParent();
+
+      if (parentNavigation) {
+        parentNavigation.reset({
+          index: 0,
+          routes: [{ name: "Home" }],
+        });
+        return;
+      }
+
       navigation.navigate("Home");
     }
   }, [token, navigation]);
@@ -51,10 +62,11 @@ const LoginScreen = () => {
           nameIcon="lock"
           sizeIcon={20}
           placeholder="Nhập mật khẩu"
-          secure={true}
+          secure={!showPassword}
           value={password}
           onChangeText={setPassword}
-          rightIcon="eye"
+          rightIcon={showPassword ? "eye-off" : "eye"}
+          onPressRightIcon={() => setShowPassword((prev) => !prev)}
         />
 
         <View style={styles.optionsRow}>
@@ -71,9 +83,10 @@ const LoginScreen = () => {
         </View>
 
         <Button
-          title={loading ? "Đang đăng nhập..." : "Đăng nhập"}
+          title="Đăng nhập"
           nameIcon="arrow-right"
-          sizeIcon={18}
+          sizeIcon={20}
+          loading={loading}
           handle={handleLogin}
         />
 
@@ -95,12 +108,14 @@ const styles = StyleSheet.create({
   form: {
     width: "100%",
   },
+
   formTitle: {
     marginBottom: 24,
     fontSize: 24,
     fontWeight: "800",
-    color: COLORS.black,
+    color: "#111827",
   },
+
   optionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -108,29 +123,38 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 20,
   },
+
   rememberRow: {
     flexDirection: "row",
     alignItems: "center",
   },
+
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary,
+    borderColor: "#286BC2",
+    backgroundColor: "#286BC2",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+    shadowColor: "#286BC2",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 2,
   },
+
   rememberText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.darkGray,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
   },
+
   forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#286BC2",
   },
 });

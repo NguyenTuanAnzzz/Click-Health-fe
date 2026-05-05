@@ -11,23 +11,24 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
 
-import { COLORS } from "../../constants/theme";
 import AuthLayout from "../../layouts/AuthLayout";
 import Button from "../../components/ui/Button";
 import Footer from "../../components/ui/Footer";
 import Error from "../../components/ui/Error";
-import { verifyOtp } from "../../store/slices/authSlice";
-import { resendOtp } from "../../store/slices/authSlice";
+import { verifyOtp, resendOtp } from "../../store/slices/authSlice";
+
 const OTP_EXPIRE_TIME = 60;
 
 const VerifyEmailScreen = () => {
   const navigation = useNavigation();
-  const dispatch = useDispatch();
   const route = useRoute();
+  const dispatch = useDispatch();
 
-  const { loading, error, isOtpVerified, user } = useSelector((state) => state.auth);
+  const { loading, error, isOtpVerified, user } = useSelector(
+    (state) => state.auth
+  );
 
-  const email = route?.params?.email || user?.email ;
+  const email = route?.params?.email || user?.email || "";
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timeLeft, setTimeLeft] = useState(OTP_EXPIRE_TIME);
@@ -116,7 +117,7 @@ const VerifyEmailScreen = () => {
   };
 
   const handleChangeOtp = (text, index) => {
-    if (isExpired) return;
+    if (isExpired || loading) return;
 
     const sanitizedValue = text.replace(/[^0-9]/g, "");
 
@@ -155,7 +156,6 @@ const VerifyEmailScreen = () => {
     }
   };
 
-
   const handleVerify = () => {
     if (!email || !isOtpFull || isExpired || loading) return;
 
@@ -168,8 +168,10 @@ const VerifyEmailScreen = () => {
   };
 
   const handleResendCode = () => {
-    if (timeLeft > 0) return;
-    dispatch(resendOtp({ email }))
+    if (timeLeft > 0 || loading || !email) return;
+
+    dispatch(resendOtp({ email }));
+
     setOtp(["", "", "", "", "", ""]);
     setTimeLeft(OTP_EXPIRE_TIME);
     hasAutoVerified.current = false;
@@ -177,9 +179,6 @@ const VerifyEmailScreen = () => {
     setTimeout(() => {
       inputsRef.current[0]?.focus();
     }, 100);
-
-    // Nếu backend có API resend OTP thì mở dòng này:
-    // dispatch(resendOtp({ email }));
   };
 
   return (
@@ -196,7 +195,10 @@ const VerifyEmailScreen = () => {
 
         {!!email && (
           <View style={styles.emailBox}>
-            <Feather name="mail" size={20} color={COLORS.primary} />
+            <View style={styles.emailIconBox}>
+              <Feather name="mail" size={18} color="#286BC2" />
+            </View>
+
             <Text style={styles.emailText}>{email}</Text>
           </View>
         )}
@@ -212,13 +214,16 @@ const VerifyEmailScreen = () => {
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => (inputsRef.current[index] = ref)}
+              ref={(ref) => {
+                inputsRef.current[index] = ref;
+              }}
               value={digit}
               onChangeText={(text) => handleChangeOtp(text, index)}
               onKeyPress={(event) => handleBackspace(event, index)}
               keyboardType="number-pad"
               maxLength={6}
               editable={!isExpired && !loading}
+              selectTextOnFocus
               style={[
                 styles.otpInput,
                 digit && styles.otpInputFilled,
@@ -229,8 +234,18 @@ const VerifyEmailScreen = () => {
         </Animated.View>
 
         <View style={styles.timerBox}>
-          <Feather name="clock" size={16} color="#EA580C" />
-          <Text style={styles.timerText}>
+          <Feather
+            name={isExpired ? "alert-circle" : "clock"}
+            size={16}
+            color={isExpired ? "#EF4444" : "#F59E0B"}
+          />
+
+          <Text
+            style={[
+              styles.timerText,
+              isExpired && styles.timerTextExpired,
+            ]}
+          >
             {isExpired ? "Mã xác thực đã hết hạn" : "Mã hết hạn trong "}
             {!isExpired && (
               <Text style={styles.timerBold}>{formatTime(timeLeft)}</Text>
@@ -239,11 +254,12 @@ const VerifyEmailScreen = () => {
         </View>
 
         <Button
-          title={loading ? "Đang xác thực..." : "Xác thực"}
+          title="Xác thực"
           nameIcon="check-circle"
           sizeIcon={18}
+          loading={loading}
+          disabled={!isOtpFull || isExpired}
           handle={handleVerify}
-          disabled={!isOtpFull || loading || isExpired}
         />
 
         {error && <Error title="Xác thực thất bại" desc={error} />}
@@ -251,21 +267,19 @@ const VerifyEmailScreen = () => {
         <TouchableOpacity
           style={[
             styles.resendButton,
-            timeLeft <= 0 && styles.resendButtonActive,
+            isExpired && styles.resendButtonActive,
           ]}
           activeOpacity={0.85}
-          disabled={timeLeft > 0}
+          disabled={!isExpired || loading}
           onPress={handleResendCode}
         >
           <Text
             style={[
               styles.resendText,
-              timeLeft > 0 && styles.resendTextDisabled,
+              !isExpired && styles.resendTextDisabled,
             ]}
           >
-            {timeLeft > 0
-              ? `Gửi lại sau ${formatTime(timeLeft)}`
-              : "Gửi lại mã"}
+            {isExpired ? "Gửi lại mã" : `Gửi lại sau ${formatTime(timeLeft)}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -285,63 +299,82 @@ const styles = StyleSheet.create({
   form: {
     width: "100%",
   },
+
   formTitle: {
     marginBottom: 10,
     fontSize: 24,
     fontWeight: "800",
-    color: COLORS.black,
+    color: "#111827",
   },
+
   description: {
     marginBottom: 18,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "500",
-    color: COLORS.darkGray,
+    color: "#6B7280",
   },
+
   emailBox: {
-    minHeight: 56,
-    borderRadius: 20,
+    minHeight: 54,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(40, 107, 194, 0.18)",
-    backgroundColor: "rgba(40, 107, 194, 0.06)",
+    borderColor: "#EEF2F7",
+    backgroundColor: "#F5F6FA",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     marginBottom: 22,
   },
-  emailText: {
-    marginLeft: 12,
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.primary,
+
+  emailIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "#EEF6FF",
+    alignItems: "center",
+    justifyContent: "center",
   },
+
+  emailText: {
+    marginLeft: 10,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#286BC2",
+  },
+
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 18,
   },
+
   otpInput: {
     width: 48,
     height: 56,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.inputBackground,
+    borderColor: "#EEF2F7",
+    backgroundColor: "#F5F6FA",
     textAlign: "center",
     fontSize: 22,
     fontWeight: "800",
-    color: COLORS.black,
+    color: "#111827",
   },
+
   otpInputFilled: {
-    borderColor: COLORS.primary,
-    backgroundColor: "rgba(40, 107, 194, 0.1)",
-    color: COLORS.primary,
+    borderColor: "#286BC2",
+    backgroundColor: "#EEF6FF",
+    color: "#286BC2",
   },
+
   otpInputDisabled: {
     backgroundColor: "#F3F4F6",
+    borderColor: "#E5E7EB",
     color: "#9CA3AF",
   },
+
   timerBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -349,33 +382,43 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     gap: 6,
   },
+
   timerText: {
-    fontSize: 14,
-    color: "#EA580C",
-    fontWeight: "500",
+    fontSize: 13,
+    color: "#F59E0B",
+    fontWeight: "600",
   },
+
+  timerTextExpired: {
+    color: "#EF4444",
+  },
+
   timerBold: {
     fontWeight: "800",
   },
+
   resendButton: {
     minHeight: 54,
     marginTop: 12,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    borderColor: "#EEF2F7",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
+
   resendButtonActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: "rgba(40, 107, 194, 0.06)",
+    borderColor: "#286BC2",
+    backgroundColor: "#EEF6FF",
   },
+
   resendText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#286BC2",
   },
+
   resendTextDisabled: {
     color: "#9CA3AF",
   },
