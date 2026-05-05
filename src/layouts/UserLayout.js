@@ -9,12 +9,12 @@ const UserLayout = ({ children }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        <UserHeader />
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <UserHeader />
-
           {children}
         </ScrollView>
 
@@ -29,17 +29,17 @@ export default UserLayout;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
 
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
 
   scrollContent: {
     paddingHorizontal: SIZES.padding,
-    paddingTop: 24,
-    paddingBottom: 110,
+    paddingTop: 22,
+    paddingBottom: 120,
   },
 });
