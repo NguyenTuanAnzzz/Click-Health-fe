@@ -16,14 +16,14 @@ const LoginScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const [showPassword, setShowPassword] = useState(false);
-
+  const [rememberMe, setRememberMe] = useState(false);
   const { token, loading, error } = useSelector((state) => state.auth);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {
-    dispatch(login({ email, password }));
+    dispatch(login({ email, password, rememberMe }));
   };
 
   useEffect(() => {
@@ -70,11 +70,20 @@ const LoginScreen = () => {
         />
 
         <View style={styles.optionsRow}>
-          <TouchableOpacity style={styles.rememberRow} activeOpacity={0.85}>
-            <View style={styles.checkbox}>
-              <Feather name="check" size={14} color={COLORS.white} />
+          <TouchableOpacity
+            style={styles.rememberRow}
+            activeOpacity={0.85}
+            onPress={() => setRememberMe((prev) => !prev)}
+          >
+            <View
+              style={[styles.checkbox, rememberMe && styles.checkboxActive]}
+            >
+              {rememberMe && (
+                <Feather name="check" size={14} color={COLORS.white} />
+              )}
             </View>
-            <Text style={styles.rememberText}>Nhớ mật khẩu</Text>
+
+            <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
           </TouchableOpacity>
 
           <TouchableOpacity activeOpacity={0.8}>
@@ -134,16 +143,15 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#286BC2",
-    backgroundColor: "#286BC2",
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    shadowColor: "#286BC2",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    elevation: 2,
+  },
+
+  checkboxActive: {
+    backgroundColor: COLORS.primary,
   },
 
   rememberText: {

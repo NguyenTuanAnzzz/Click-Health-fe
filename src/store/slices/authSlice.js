@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import API_URL from "../../constants/apiConfig";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const getErrorMessage = (error, fallback) => {
   return error?.response?.data?.message || error?.message || fallback;
 };
@@ -22,15 +22,41 @@ export const register = createAsyncThunk(
 
 export const login = createAsyncThunk(
   "auth/login",
-  async (credentials, thunkAPI) => {
+  async ({ email, password, rememberMe }, thunkAPI) => {
     try {
-      const res = await axios.post(`${API_URL}/users/login`, credentials);
+      const res = await axios.post(`${API_URL}/users/login`, {
+        email,
+        password,
+      });
+
+      const token = res.data?.token;
+
+      if (rememberMe && token) {
+        await AsyncStorage.setItem("token", token);
+      }
+
       return res.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(getErrorMessage(error, "Login failed"));
     }
   },
 );
+
+export const loadStoredToken = createAsyncThunk(
+  "auth/loadStoredToken",
+  async (_, thunkAPI) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      return token;
+    } catch (error) {
+      return thunkAPI.rejectWithValue("Cannot load stored token");
+    }
+  },
+);
+
+export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
+  await AsyncStorage.removeItem("token");
+});
 
 export const verifyOtp = createAsyncThunk(
   "auth/verifyOtp",
@@ -46,8 +72,7 @@ export const verifyOtp = createAsyncThunk(
   },
 );
 
-
-export const resendOtp  = createAsyncThunk(
+export const resendOtp = createAsyncThunk(
   "auth/resendOtp",
   async (emailData, thunkAPI) => {
     try {
@@ -69,14 +94,11 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     isOtpVerified: false,
+    appLoading: true,
   },
   reducers: {
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
+    clearError: (state) => {
       state.error = null;
-      state.loading = false;
-      state.isOtpVerified = false;
     },
   },
   extraReducers: (builder) => {
@@ -90,11 +112,21 @@ const authSlice = createSlice({
         state.token = action.payload || null;
         state.error = null;
       })
+      .addCase(loadStoredToken.fulfilled, (state, action) => {
+        state.token = action.payload;
+      })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
 
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.error = null;
+        state.loading = false;
+        state.isOtpVerified = false;
+      })
       .addCase(register.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -119,18 +151,18 @@ const authSlice = createSlice({
       .addCase(verifyOtp.fulfilled, (state, action) => {
         state.loading = false;
         state.error = null;
-        state.isOtpVerified = true
+        state.isOtpVerified = true;
       })
       .addCase(verifyOtp.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })
-      .addCase(resendOtp.pending, (state, action) =>{
+      .addCase(resendOtp.pending, (state, action) => {
         state.loading = true;
         state.isOtpVerified = false;
         state.error = null;
       })
-      .addCase(resendOtp.fulfilled,(state, action) =>{
+      .addCase(resendOtp.fulfilled, (state, action) => {
         state.loading = false;
         state.isOtpVerified = false;
         state.user = {
@@ -138,11 +170,10 @@ const authSlice = createSlice({
         };
         state.error = null;
       })
-      .addCase(resendOtp.rejected,(state, action) =>{
+      .addCase(resendOtp.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload
-      })
-      ;
+        state.error = action.payload;
+      });
   },
 });
 

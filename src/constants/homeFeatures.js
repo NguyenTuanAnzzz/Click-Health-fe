@@ -1,40 +1,42 @@
-export const HOME_FEATURES = [
+const features = [
   {
     id: 1,
     title: "Kiểm tra BEFAST bằng AI",
     icon: "camera",
-    screen: "BefastCheck",
     primary: true,
+    link: "BefastCheck",
   },
   {
     id: 2,
     title: "Tính điểm nguy cơ đột quỵ",
     icon: "bar-chart-2",
-    screen: "StrokeRisk",
+    link: "StrokeRiskScore",
   },
   {
     id: 3,
     title: "Bài luyện tập khắc phục",
     icon: "activity",
-    screen: "Exercise",
+    link: "RecoveryExercise",
   },
   {
     id: 4,
     title: "Gọi cấp cứu",
     icon: "phone-call",
-    screen: "EmergencyCall",
     danger: true,
+    link: "EmergencyCall",
   },
   {
     id: 5,
     title: "Bệnh viện gần nhất",
     icon: "map-pin",
-    screen: "NearbyHospital",
+    link: "NearbyHospital",
   },
   {
     id: 6,
     title: "Theo dõi sức khỏe",
     icon: "heart",
-    screen: "HealthTracking",
+    link: "HealthTracking",
   },
 ];
+
+export default features;

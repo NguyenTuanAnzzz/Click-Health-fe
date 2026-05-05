@@ -3,6 +3,9 @@ export const COLORS = {
   primaryDark: "#1E5296",
   primaryLight: "#84AAD8",
 
+  primarySoft: "#EEF6FF",
+  primaryMedium: "#3B82D6",
+
   white: "#FFFFFF",
   black: "#111827",
 
@@ -21,9 +24,9 @@ export const COLORS = {
   error: "#EF4444",
   success: "#22C55E",
 
-  gradientBlue: ["#286BC2", "#3E7FCA", "#84AAD8"],
+  gradientBlue: ["#2F80D0", "#3B8DDF", "#65A7EA"],
+  gradientBlueDark: ["#286BC2", "#347DD2", "#5FA3E8"],
 };
-
 export const SIZES = {
   padding: 24,
   radius: 18,
