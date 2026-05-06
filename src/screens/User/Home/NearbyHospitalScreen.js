@@ -1,16 +1,22 @@
-    import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Linking,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { COLORS, SIZES } from "../../../constants/theme";
 import UserLayout from "../../../layouts/UserLayout";
-
+import { useSelector, useDispatch } from "react-redux";
+import { getNearbyHospital } from "../../../store/slices/placeSlice";
+import CardPaginationNearbyHospital from "../../../components/ui/CardPaginationNearbyHostpital";
+import HospitalCard from "../../../components/ui/HostpitalCard";
+import BackButton from "../../../components/ui/BackButton";
+import Pagination from "../../../components/ui/Pagination";
+import * as Location from "expo-location";
 const filters = [
   { id: 1, title: "Tất cả", active: true },
   { id: 2, title: "Cấp cứu 24/7", icon: "truck" },
@@ -18,80 +24,90 @@ const filters = [
   { id: 4, title: "Bệnh viện tư" },
 ];
 
-const hospitals = [
-  {
-    id: 1,
-    name: "Bệnh viện Chợ Rẫy",
-    address: "201B Nguyễn Chí Thanh, P.12, Q.5",
-    distance: "0.8 km",
-    rating: "4.8",
-    reviews: "2.5k",
-    status: "Mở",
-    icon: "briefcase",
-    color: "#EF4444",
-    bgColor: "#FEF2F2",
-    phone: "0289235800",
-  },
-  {
-    id: 2,
-    name: "Bệnh viện Đại học Y Dược",
-    address: "215 Hồng Bàng, P.11, Q.5",
-    distance: "1.2 km",
-    rating: "4.6",
-    reviews: "1.8k",
-    status: "Mở",
-    icon: "home",
-    color: COLORS.primary,
-    bgColor: "#EEF6FF",
-    phone: "0289235800",
-  },
-  {
-    id: 3,
-    name: "Bệnh viện Tim Tâm Đức",
-    address: "4 Nguyễn Lương Bằng, P.Tân Phú, Q.7",
-    distance: "2.1 km",
-    rating: "4.9",
-    reviews: "3.2k",
-    status: "Mở",
-    icon: "heart",
-    color: "#84AAD8",
-    bgColor: "#F0F7FF",
-    phone: "02839237088",
-  },
-  {
-    id: 4,
-    name: "Bệnh viện 175",
-    address: "786 Nguyễn Kiệm, P.3, Q.Gò Vấp",
-    distance: "3.5 km",
-    rating: "4.5",
-    reviews: "1.5k",
-    status: "Đóng",
-    icon: "activity",
-    color: COLORS.primary,
-    bgColor: "#EEF6FF",
-    phone: "02839237088",
-  },
-];
+
+
+
 
 const NearbyHospitalScreen = () => {
-  const handleCall = (phone) => {
-    Linking.openURL(`tel:${phone}`);
+
+  const { loading, error, hospitals, totalItems, pages } = useSelector((state) => state.place)
+  const dispatch = useDispatch();
+
+  const [location, setLocation] = useState(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = pages || 1;
+
+
+  const getPaginationPages = (currentPage, totalPages) => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, "...", totalPages];
+    }
+
+    if (currentPage >= totalPages - 2) {
+      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
   };
 
-  const handleDirection = () => {
-    Linking.openURL("https://www.google.com/maps");
-  };
+  useEffect(() => {
+    const getUserLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== "granted") {
+          console.log("Người dùng không cho phép lấy vị trí");
+          return;
+        }
+
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        setLocation({
+          lat: currentLocation.coords.latitude,
+          lng: currentLocation.coords.longitude,
+        });
+      } catch (error) {
+        console.log("LOCATION ERROR:", error);
+      }
+    };
+
+    getUserLocation();
+  }, []);
+
+  useEffect(() => {
+    if (!location) return;
+
+    dispatch(
+      getNearbyHospital({
+        lat: location.lat,
+        lng: location.lng,
+        page: currentPage,
+        limit: 10,
+      })
+    );
+  }, [dispatch, location, currentPage]);
+
 
   return (
     <UserLayout>
-      <View style={styles.pageTitleBox}>
-        <View style={styles.pageIconBox}>
-          <Feather name="map-pin" size={21} color={COLORS.primary} />
+      <View style={styles.screenHeader}>
+        <BackButton />
+
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Bệnh viện gần nhất</Text>
+          <Text style={styles.headerDesc}>Tìm bệnh viện gần bạn nhất</Text>
         </View>
 
-        <View>
-          <Text style={styles.pageTitle}>Bệnh viện gần nhất</Text>
-          <Text style={styles.pageDesc}>Tìm bệnh viện gần bạn nhất</Text>
+        <View style={styles.headerIconBox}>
+          <Feather name="map-pin" size={20} color={COLORS.primary} />
         </View>
       </View>
 
@@ -165,26 +181,42 @@ const NearbyHospitalScreen = () => {
         <Text style={styles.listTitle}>Danh sách bệnh viện</Text>
 
         <TouchableOpacity style={styles.sortButton} activeOpacity={0.8}>
-          <Feather name="arrow-up-down" size={15} color={COLORS.primary} />
-          <Text style={styles.sortText}>Khoảng cách</Text>
+          <Feather name="arrow-up" size={15} color={COLORS.primary} />
+          <Text style={styles.sortText}>Khoảng cách: 20km</Text>
         </TouchableOpacity>
       </View>
-
-      <View style={styles.hospitalList}>
-        {hospitals.map((item) => (
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Đang tải bệnh viện...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.emptyBox}>
+          <Feather name="alert-circle" size={20} color="#EF4444" />
+          <Text style={styles.emptyText}>{error}</Text>
+        </View>
+      ) : hospitals.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Feather name="map-pin" size={20} color={COLORS.textMuted} />
+          <Text style={styles.emptyText}>Không tìm thấy bệnh viện gần bạn</Text>
+        </View>
+      ) : (
+        hospitals.map((h) => (
           <HospitalCard
-            key={item.id}
-            item={item}
-            onCall={() => handleCall(item.phone)}
-            onDirection={handleDirection}
+            key={h.id}
+            name={h.name}
+            address={h.address}
+            distance={h.distance ? `${h.distance} km` : "Chưa rõ"}
           />
-        ))}
-      </View>
+        ))
+      )}
+
 
       <View style={styles.emergencyCard}>
         <View style={styles.emergencyIconBox}>
           <Feather name="alert-triangle" size={19} color="#EF4444" />
         </View>
+
 
         <View style={styles.emergencyContent}>
           <Text style={styles.emergencyTitle}>Trường hợp khẩn cấp</Text>
@@ -195,6 +227,15 @@ const NearbyHospitalScreen = () => {
           </Text>
         </View>
       </View>
+      <Pagination
+        currentPage={currentPage}
+        pages={getPaginationPages(currentPage, totalPages)}
+        disablePrevious={currentPage === 1}
+        disableNext={currentPage === totalPages}
+        onPrevious={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+        onNext={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+        onPagePress={(page) => setCurrentPage(page)}
+      />
     </UserLayout>
   );
 };
@@ -213,108 +254,47 @@ const MapMarker = ({ top, left, right, bottom, distance, color, icon }) => {
   );
 };
 
-const HospitalCard = ({ item, onCall, onDirection }) => {
-  const isOpen = item.status === "Mở";
 
-  return (
-    <View style={styles.hospitalCard}>
-      <View style={[styles.hospitalIconBox, { backgroundColor: item.bgColor }]}>
-        <Feather name={item.icon} size={23} color={item.color} />
-      </View>
-
-      <View style={styles.hospitalContent}>
-        <View style={styles.hospitalTopRow}>
-          <Text style={styles.hospitalName} numberOfLines={1}>
-            {item.name}
-          </Text>
-
-          <View
-            style={[
-              styles.statusBadge,
-              isOpen ? styles.statusOpen : styles.statusClose,
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusText,
-                isOpen ? styles.statusTextOpen : styles.statusTextClose,
-              ]}
-            >
-              {item.status}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.ratingRow}>
-          <Feather name="star" size={13} color="#FACC15" />
-          <Text style={styles.ratingText}>{item.rating}</Text>
-          <Text style={styles.reviewText}>({item.reviews} đánh giá)</Text>
-        </View>
-
-        <Text style={styles.address} numberOfLines={1}>
-          {item.address}
-        </Text>
-
-        <View style={styles.cardBottomRow}>
-          <View style={styles.distanceRow}>
-            <Feather name="map-pin" size={14} color={COLORS.primary} />
-            <Text style={styles.distanceText}>{item.distance}</Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={styles.directionButton}
-              activeOpacity={0.8}
-              onPress={onDirection}
-            >
-              <Feather name="navigation" size={16} color={COLORS.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.callButton}
-              activeOpacity={0.8}
-              onPress={onCall}
-            >
-              <Feather name="phone" size={16} color={COLORS.white} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
 
 export default NearbyHospitalScreen;
 
 const styles = StyleSheet.create({
-  pageTitleBox: {
+  screenHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 18,
   },
 
-  pageIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    backgroundColor: "rgba(132,170,216,0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
+  headerContent: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 10,
   },
 
-  pageTitle: {
+  headerTitle: {
     fontSize: 21,
-    lineHeight: 27,
+    lineHeight: 26,
     fontWeight: "900",
     color: COLORS.black,
   },
 
-  pageDesc: {
+  headerDesc: {
     marginTop: 2,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: "500",
     color: COLORS.darkGray,
+  },
+
+  headerIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: "rgba(132,170,216,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(132,170,216,0.28)",
   },
 
   mapBox: {
@@ -553,144 +533,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  hospitalCard: {
-    minHeight: 112,
-    borderRadius: 22,
-    padding: 14,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
-    flexDirection: "row",
 
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-
-  hospitalIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-
-  hospitalContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  hospitalTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-
-  hospitalName: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "800",
-    color: COLORS.black,
-  },
-
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-
-  statusOpen: {
-    backgroundColor: "#DCFCE7",
-  },
-
-  statusClose: {
-    backgroundColor: "#FEE2E2",
-  },
-
-  statusText: {
-    fontSize: 11,
-    fontWeight: "800",
-  },
-
-  statusTextOpen: {
-    color: "#15803D",
-  },
-
-  statusTextClose: {
-    color: "#B91C1C",
-  },
-
-  ratingRow: {
-    marginTop: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-
-  ratingText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COLORS.black,
-  },
-
-  reviewText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: COLORS.textMuted,
-  },
-
-  address: {
-    marginTop: 4,
-    fontSize: 13,
-    color: COLORS.darkGray,
-  },
-
-  cardBottomRow: {
-    marginTop: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  distanceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-
-  distanceText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: COLORS.primary,
-  },
-
-  actionRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-
-  directionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(132,170,216,0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  callButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
   emergencyCard: {
     marginTop: 16,
