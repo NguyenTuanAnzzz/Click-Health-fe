@@ -11,12 +11,14 @@ const UserLayout = ({ children }) => {
       <View style={styles.container}>
         <UserHeader />
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {children}
-        </ScrollView>
+        <View style={styles.body}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <View style={styles.contentCard}>{children}</View>
+          </ScrollView>
+        </View>
 
         <BottomNavigation />
       </View>
@@ -37,9 +39,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
 
+  body: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
   scrollContent: {
     paddingHorizontal: SIZES.padding,
-    paddingTop: 22,
+    paddingTop: 18,
     paddingBottom: 120,
+  },
+
+  contentCard: {
+    borderRadius: 28,
+    padding: 0,
   },
 });

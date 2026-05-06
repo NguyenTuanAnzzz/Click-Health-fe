@@ -5,15 +5,17 @@ import { COLORS, SIZES } from "../../constants/theme";
 
 const UserHeader = () => {
   return (
-    <View style={styles.header}>
-      <View style={styles.left}>
-        <Text style={styles.caption}>Sức khỏe hôm nay</Text>
-        <Text style={styles.title}>Click Health</Text>
-      </View>
+    <View style={styles.headerWrap}>
+      <View style={styles.header}>
+        <View style={styles.left}>
+          <Text style={styles.caption}>Sức khỏe hôm nay</Text>
+          <Text style={styles.title}>Click Health</Text>
+        </View>
 
-      <TouchableOpacity style={styles.actionButton} activeOpacity={0.85}>
-        <Feather name="bell" size={20} color={COLORS.primary} />
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.85}>
+          <Feather name="bell" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -21,30 +23,29 @@ const UserHeader = () => {
 export default UserHeader;
 
 const styles = StyleSheet.create({
-  header: {
-    height: 78,
-    backgroundColor: COLORS.white,
+  headerWrap: {
+    backgroundColor: COLORS.background,
     paddingHorizontal: SIZES.padding,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+
+  header: {
+    minHeight: 74,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 24,
+    backgroundColor: COLORS.white,
 
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
 
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
-
     shadowColor: COLORS.black,
     shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 4,
-    zIndex: 10,
   },
 
   left: {
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "900",
     color: COLORS.text,
   },
 
@@ -68,12 +69,10 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 16,
-    backgroundColor: COLORS.primarySoft,
-
+    backgroundColor: "rgba(132,170,216,0.18)",
     alignItems: "center",
     justifyContent: "center",
-
     borderWidth: 1,
-    borderColor: COLORS.primaryLight,
+    borderColor: "rgba(132,170,216,0.28)",
   },
 });

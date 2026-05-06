@@ -30,15 +30,11 @@ const LoginScreen = () => {
     if (token) {
       const parentNavigation = navigation.getParent();
 
-      if (parentNavigation) {
-        parentNavigation.reset({
-          index: 0,
-          routes: [{ name: "Home" }],
-        });
-        return;
-      }
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainApp" }],
+      });
 
-      navigation.navigate("Home");
     }
   }, [token, navigation]);
 

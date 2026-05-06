@@ -9,7 +9,7 @@ const RootNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Auth" component={AppNavigator} />
-      <Stack.Screen name="Home" component={HomeNavigator} />
+      <Stack.Screen name="MainApp" component={HomeNavigator} />
     </Stack.Navigator>
   );
 };
