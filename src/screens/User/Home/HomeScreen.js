@@ -6,10 +6,13 @@ import UserLayout from "../../../layouts/UserLayout";
 import RecentCheckCard from "../../../components/ui/RecentCheckCard";
 import ItemMainFunction from "../../../components/ui/ItemMainFunction";
 import features from "../../../constants/homeFeatures";
+import { useNavigation } from "@react-navigation/native";
 
 const HomeScreen = () => {
 
   const data = features
+
+  const navigation = useNavigation()
   return (
     <UserLayout>
       <View style={styles.greetingBox}>
@@ -31,7 +34,7 @@ const HomeScreen = () => {
           
         </View>
 
-        <TouchableOpacity style={styles.knowledgeCard} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.knowledgeCard} activeOpacity={0.85} onPress={() =>(navigation.navigate("KnowledgeTab"))}>
           <View style={styles.knowledgeIconBox}>
             <Feather name="book-open" size={24} color={COLORS.primary} />
           </View>

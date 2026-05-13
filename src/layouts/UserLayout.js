@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { COLORS, SIZES } from "../constants/theme";
 
 import UserHeader from "../components/ui/UserHeader";
-import BottomNavigation from "../components/ui/BottomNavigation";
 
 const UserLayout = ({ children }) => {
   return (
@@ -19,8 +18,6 @@ const UserLayout = ({ children }) => {
             <View style={styles.contentCard}>{children}</View>
           </ScrollView>
         </View>
-
-        <BottomNavigation />
       </View>
     </SafeAreaView>
   );

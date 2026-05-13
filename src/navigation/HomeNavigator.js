@@ -14,6 +14,7 @@ const HomeNavigator = () => {
     >
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="NearbyHospital" component={NearbyHospitalScreen} />
+   
     </Stack.Navigator>
   );
 };

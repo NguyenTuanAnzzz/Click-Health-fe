@@ -31,15 +31,19 @@ export const login = createAsyncThunk(
 
       const token = res.data?.token;
 
-      if (rememberMe && token) {
-        await AsyncStorage.setItem("token", token);
+      if (token) {
+        if (rememberMe) {
+          await AsyncStorage.setItem("token", token);
+        } else {
+          await AsyncStorage.removeItem("token");
+        }
       }
 
       return res.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(getErrorMessage(error, "Login failed"));
     }
-  },
+  }
 );
 
 export const loadStoredToken = createAsyncThunk(
@@ -86,6 +90,35 @@ export const resendOtp = createAsyncThunk(
   },
 );
 
+export const getInfo = createAsyncThunk(
+  "auth/getInfo",
+  async (_, thunkAPI) => {
+    try {
+      let token = thunkAPI.getState().auth.token;
+
+      if (!token) {
+        token = await AsyncStorage.getItem("token");
+      }
+
+      if (!token) {
+        return thunkAPI.rejectWithValue("Token not found");
+      }
+
+      const res = await axios.get(`${API_URL}/users/get-info`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return res.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        getErrorMessage(error, "Get user info failed")
+      );
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState: {
@@ -109,15 +142,23 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
-        state.token = action.payload || null;
+        state.token = action.payload?.token || null;
         state.error = null;
-      })
-      .addCase(loadStoredToken.fulfilled, (state, action) => {
-        state.token = action.payload;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
+      })
+      .addCase(loadStoredToken.pending, (state) => {
+        state.appLoading = true;
+      })
+      .addCase(loadStoredToken.fulfilled, (state, action) => {
+        state.token = action.payload || null;
+        state.appLoading = false;
+      })
+      .addCase(loadStoredToken.rejected, (state) => {
+        state.token = null;
+        state.appLoading = false;
       })
 
       .addCase(logoutUser.fulfilled, (state) => {
@@ -173,7 +214,20 @@ const authSlice = createSlice({
       .addCase(resendOtp.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+      .addCase(getInfo.pending, (state, action) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getInfo.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload?.user;
+        state.error = null;
+      })
+      .addCase(getInfo.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 });
 
