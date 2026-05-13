@@ -34,9 +34,11 @@ const LoginScreen = () => {
         index: 0,
         routes: [{ name: "MainApp" }],
       });
-
+      
     }
   }, [token, navigation]);
+
+
 
   return (
     <AuthLayout tagline="Ứng dụng chăm sóc sức khỏe">
