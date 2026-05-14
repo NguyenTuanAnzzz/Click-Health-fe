@@ -28,7 +28,15 @@ const HomeScreen = () => {
         <View style={styles.featureGrid}>
           {
             data.map(d => (
-              <ItemMainFunction key={d.id} title={d.title} nameIcon={d.icon} danger={d.danger} primary={d.primary} link={d.link}/>
+              <ItemMainFunction
+                key={d.id}
+                title={d.title}
+                nameIcon={d.icon}
+                danger={d.danger}
+                primary={d.primary}
+                link={d.link}
+                telNumber={d.telNumber}
+              />
             ))
           }
           

@@ -1,13 +1,23 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { COLORS } from "../../constants/theme";
 import { useNavigation } from "@react-navigation/native";
 export default function ItemMainFunction(props) {
     const navigation = useNavigation();
-    const handleClick = (screenName) => {
-        if (!screenName) return;
-        navigation.navigate(screenName);
+    const iconName = props.nameIcon || props.icon;
+
+    const handlePress = () => {
+        if (props.telNumber) {
+            const url = `tel:${props.telNumber}`;
+            Linking.openURL(url).catch(() => {
+                Alert.alert("Không thể gọi", "Máy không mở được ứng dụng điện thoại.");
+            });
+            return;
+        }
+        if (props.link) {
+            navigation.navigate(props.link);
+        }
     };
     return (
 
@@ -18,7 +28,7 @@ export default function ItemMainFunction(props) {
                 props.primary && styles.featureCardPrimary,
                 props.danger && styles.featureCardDanger,
             ]}
-            onPress={() => handleClick(props.link)}
+            onPress={handlePress}
         >
             <View
                 style={[
@@ -27,7 +37,7 @@ export default function ItemMainFunction(props) {
                 ]}
             >
                 <Feather
-                    name={props.nameIcon}
+                    name={iconName}
                     size={21}
                     color={
                         props.primary || props.danger

@@ -20,10 +20,10 @@ const features = [
   },
   {
     id: 4,
-    title: "Gọi cấp cứu",
+    title: "Gọi Cấp cứu (115)",
     icon: "phone-call",
     danger: true,
-    link: "EmergencyCall",
+    telNumber: "115",
   },
   {
     id: 5,
