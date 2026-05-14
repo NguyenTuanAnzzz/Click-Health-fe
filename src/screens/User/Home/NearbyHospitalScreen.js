@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,38 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
+  Linking,
+  Alert,
 } from "react-native";
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Feather } from "@expo/vector-icons";
-import { COLORS, SIZES } from "../../../constants/theme";
+import { COLORS } from "../../../constants/theme";
 import UserLayout from "../../../layouts/UserLayout";
 import { useSelector, useDispatch } from "react-redux";
 import { getNearbyHospital } from "../../../store/slices/placeSlice";
-import CardPaginationNearbyHospital from "../../../components/ui/CardPaginationNearbyHostpital";
 import HospitalCard from "../../../components/ui/HostpitalCard";
 import BackButton from "../../../components/ui/BackButton";
 import Pagination from "../../../components/ui/Pagination";
 import * as Location from "expo-location";
+
+const RADIUS_KM = 20;
+const RADIUS_METERS = RADIUS_KM * 1000;
+const LIST_PAGE_SIZE = 10;
+const FETCH_LIMIT = 500;
+
+/** Chuẩn hóa số cho URI tel: (giữ + quốc tế, bỏ khoảng trắng / dấu gạch). */
+function phoneToTelDigits(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  const first = raw.split(/[;|/]/)[0].trim();
+  if (!first) return null;
+  const noExt = first.split(/\s+(ext\.?|x)\s*/i)[0].trim();
+  let s = noExt.replace(/[\s().-]/g, "");
+  if (s.startsWith("00")) s = `+${s.slice(2)}`;
+  if (!/^\+?\d{6,}$/.test(s)) return null;
+  return s;
+}
+
 const filters = [
   { id: 1, title: "Tất cả", active: true },
   { id: 2, title: "Cấp cứu 24/7", icon: "truck" },
@@ -24,37 +45,67 @@ const filters = [
   { id: 4, title: "Bệnh viện tư" },
 ];
 
-
-
-
-
 const NearbyHospitalScreen = () => {
-
-  const { loading, error, hospitals, totalItems, pages } = useSelector((state) => state.place)
+  const { loading, error, hospitalsInRadius } = useSelector((state) => state.place);
   const dispatch = useDispatch();
+  const mapRef = useRef(null);
 
   const [location, setLocation] = useState(null);
-
+  const [locationDenied, setLocationDenied] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const totalPages = pages || 1;
+  const totalPages = Math.max(1, Math.ceil((hospitalsInRadius?.length || 0) / LIST_PAGE_SIZE));
 
+  const pagedHospitals = (hospitalsInRadius || []).slice(
+    (currentPage - 1) * LIST_PAGE_SIZE,
+    currentPage * LIST_PAGE_SIZE
+  );
 
-  const getPaginationPages = (currentPage, totalPages) => {
-    if (totalPages <= 5) {
-      return Array.from({ length: totalPages }, (_, index) => index + 1);
+  const getPaginationPages = (page, total) => {
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, index) => index + 1);
     }
 
-    if (currentPage <= 3) {
-      return [1, 2, 3, 4, "...", totalPages];
+    if (page <= 3) {
+      return [1, 2, 3, 4, "...", total];
     }
 
-    if (currentPage >= totalPages - 2) {
-      return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    if (page >= total - 2) {
+      return [1, "...", total - 3, total - 2, total - 1, total];
     }
 
-    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+    return [1, "...", page - 1, page, page + 1, "...", total];
   };
+
+  const fitMapToData = useCallback(() => {
+    if (!location || !mapRef.current) return;
+
+    const userCoord = { latitude: location.lat, longitude: location.lng };
+    const hospitalCoords = (hospitalsInRadius || []).map((h) => ({
+      latitude: h.latitude,
+      longitude: h.longitude,
+    }));
+
+    const coords = [userCoord, ...hospitalCoords];
+
+    if (hospitalCoords.length === 0) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: location.lat,
+          longitude: location.lng,
+          latitudeDelta: 0.22,
+          longitudeDelta: 0.22,
+        },
+        350
+      );
+      return;
+    }
+
+    mapRef.current.fitToCoordinates(coords, {
+      edgePadding: { top: 56, right: 36, bottom: 36, left: 36 },
+      animated: true,
+    });
+  }, [location, hospitalsInRadius]);
 
   useEffect(() => {
     const getUserLocation = async () => {
@@ -62,7 +113,7 @@ const NearbyHospitalScreen = () => {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== "granted") {
-          console.log("Người dùng không cho phép lấy vị trí");
+          setLocationDenied(true);
           return;
         }
 
@@ -74,13 +125,23 @@ const NearbyHospitalScreen = () => {
           lat: currentLocation.coords.latitude,
           lng: currentLocation.coords.longitude,
         });
-      } catch (error) {
-        console.log("LOCATION ERROR:", error);
+        setLocationDenied(false);
+      } catch (e) {
+        setLocationDenied(true);
       }
     };
 
     getUserLocation();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [location?.lat, location?.lng]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil((hospitalsInRadius?.length || 0) / LIST_PAGE_SIZE));
+    setCurrentPage((p) => Math.min(p, maxPage));
+  }, [hospitalsInRadius?.length]);
 
   useEffect(() => {
     if (!location) return;
@@ -89,12 +150,97 @@ const NearbyHospitalScreen = () => {
       getNearbyHospital({
         lat: location.lat,
         lng: location.lng,
-        page: currentPage,
-        limit: 10,
+        page: 1,
+        limit: FETCH_LIMIT,
+        radiusMeters: RADIUS_METERS,
       })
     );
-  }, [dispatch, location, currentPage]);
+  }, [dispatch, location]);
 
+  useEffect(() => {
+    if (!location || loading) return;
+    const t = setTimeout(fitMapToData, 400);
+    return () => clearTimeout(t);
+  }, [location, loading, hospitalsInRadius, fitMapToData]);
+
+  const recenterOnUser = () => {
+    if (!location || !mapRef.current) return;
+    mapRef.current.animateToRegion(
+      {
+        latitude: location.lat,
+        longitude: location.lng,
+        latitudeDelta: 0.22,
+        longitudeDelta: 0.22,
+      },
+      350
+    );
+  };
+
+  const zoomMap = (direction) => {
+    if (!location || !mapRef.current) return;
+    mapRef.current
+      .getCamera()
+      .then((cam) => {
+        const next = Math.min(20, Math.max(4, (cam.zoom || 12) + direction));
+        mapRef.current.animateCamera({ center: cam.center, zoom: next }, { duration: 220 });
+      })
+      .catch(() => {
+        mapRef.current?.animateToRegion(
+          {
+            latitude: location.lat,
+            longitude: location.lng,
+            latitudeDelta: 0.12 * (direction > 0 ? 0.65 : 1.45),
+            longitudeDelta: 0.12 * (direction > 0 ? 0.65 : 1.45),
+          },
+          220
+        );
+      });
+  };
+
+  const openDirections = (lat, lng) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    Linking.openURL(url);
+  };
+
+  const openHospitalCall = (h) => {
+    if (h.phone) {
+      const tel = phoneToTelDigits(h.phone);
+      if (tel) {
+        const url = `tel:${tel}`;
+        Linking.openURL(url).catch(() => {
+          Alert.alert("Không thể gọi", "Máy không mở được ứng dụng điện thoại.");
+        });
+        return;
+      }
+    }
+
+    Alert.alert(
+      "Chưa có số điện thoại",
+      `OpenStreetMap chưa ghi số cho "${h.name}". Bạn có thể mở Google Maps (thường có nút gọi giống khi bạn tự tìm) hoặc gọi 115 khi cấp cứu.`,
+      [
+        { text: "Đóng", style: "cancel" },
+        {
+          text: "Mở Google Maps",
+          onPress: () => {
+            const name = encodeURIComponent(h.name);
+            const ll = `${h.latitude},${h.longitude}`;
+            Linking.openURL(
+              `https://www.google.com/maps/search/?api=1&query=${name}&ll=${encodeURIComponent(ll)}&hl=vi`
+            );
+          },
+        },
+        { text: "Gọi 115", onPress: () => Linking.openURL("tel:115") },
+      ]
+    );
+  };
+
+  const mapProvider = Platform.OS === "android" ? PROVIDER_GOOGLE : undefined;
+
+  const listEmpty =
+    !loading &&
+    !error &&
+    location &&
+    (!hospitalsInRadius || hospitalsInRadius.length === 0);
 
   return (
     <UserLayout>
@@ -112,36 +258,71 @@ const NearbyHospitalScreen = () => {
       </View>
 
       <View style={styles.mapBox}>
-        <View style={styles.gridLineHorizontalOne} />
-        <View style={styles.gridLineHorizontalTwo} />
-        <View style={styles.gridLineHorizontalThree} />
-        <View style={styles.gridLineVerticalOne} />
-        <View style={styles.gridLineVerticalTwo} />
-        <View style={styles.gridLineVerticalThree} />
+        {location && !locationDenied ? (
+          <MapView
+            ref={mapRef}
+            style={StyleSheet.absoluteFill}
+            provider={mapProvider}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+            initialRegion={{
+              latitude: location.lat,
+              longitude: location.lng,
+              latitudeDelta: 0.22,
+              longitudeDelta: 0.22,
+            }}
+          >
+            <Circle
+              center={{ latitude: location.lat, longitude: location.lng }}
+              radius={RADIUS_METERS}
+              strokeColor="rgba(40,107,194,0.55)"
+              fillColor="rgba(40,107,194,0.1)"
+              strokeWidth={2}
+            />
 
-        <View style={styles.userLocation}>
-          <View style={styles.userPulse} />
-          <View style={styles.userDot}>
-            <Feather name="user" size={20} color={COLORS.white} />
+            <Marker
+              coordinate={{ latitude: location.lat, longitude: location.lng }}
+              title="Vị trí của bạn"
+              pinColor={COLORS.primary}
+            />
+
+            {(hospitalsInRadius || []).map((h) => (
+              <Marker
+                key={h.id}
+                coordinate={{ latitude: h.latitude, longitude: h.longitude }}
+                title={h.name}
+                description={`${h.distance} km`}
+                pinColor="#EF4444"
+              />
+            ))}
+          </MapView>
+        ) : (
+          <View style={styles.mapPlaceholder}>
+            {locationDenied ? (
+              <>
+                <Feather name="map-pin" size={28} color={COLORS.textMuted} />
+                <Text style={styles.mapPlaceholderTitle}>Cần quyền truy cập vị trí</Text>
+                <Text style={styles.mapPlaceholderDesc}>
+                  Bật định vị để xem bản đồ và danh sách bệnh viện trong bán kính {RADIUS_KM}km.
+                </Text>
+              </>
+            ) : (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            )}
           </View>
-        </View>
-
-        <MapMarker top={32} left={30} distance="0.8km" color="#EF4444" icon="plus" />
-        <MapMarker top={44} right={44} distance="1.2km" color={COLORS.primary} icon="home" />
-        <MapMarker bottom={58} left={58} distance="2.1km" color="#84AAD8" icon="plus" />
-        <MapMarker bottom={28} right={74} distance="3.5km" color={COLORS.primary} icon="activity" />
+        )}
 
         <View style={styles.mapControls}>
-          <TouchableOpacity style={styles.mapButton} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.mapButton} activeOpacity={0.8} onPress={() => zoomMap(1)}>
             <Feather name="plus" size={18} color={COLORS.black} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.mapButton} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.mapButton} activeOpacity={0.8} onPress={() => zoomMap(-1)}>
             <Feather name="minus" size={18} color={COLORS.black} />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.myLocationButton} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.myLocationButton} activeOpacity={0.8} onPress={recenterOnUser}>
           <Feather name="crosshair" size={18} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
@@ -158,21 +339,10 @@ const NearbyHospitalScreen = () => {
             style={[styles.filterChip, item.active && styles.filterChipActive]}
           >
             {item.icon && (
-              <Feather
-                name={item.icon}
-                size={14}
-                color={item.active ? COLORS.white : "#EF4444"}
-              />
+              <Feather name={item.icon} size={14} color={item.active ? COLORS.white : "#EF4444"} />
             )}
 
-            <Text
-              style={[
-                styles.filterText,
-                item.active && styles.filterTextActive,
-              ]}
-            >
-              {item.title}
-            </Text>
+            <Text style={[styles.filterText, item.active && styles.filterTextActive]}>{item.title}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -180,12 +350,22 @@ const NearbyHospitalScreen = () => {
       <View style={styles.listHeader}>
         <Text style={styles.listTitle}>Danh sách bệnh viện</Text>
 
-        <TouchableOpacity style={styles.sortButton} activeOpacity={0.8}>
+        <View style={styles.sortButton}>
           <Feather name="arrow-up" size={15} color={COLORS.primary} />
-          <Text style={styles.sortText}>Khoảng cách: 20km</Text>
-        </TouchableOpacity>
+          <Text style={styles.sortText}>Trong {RADIUS_KM}km · gần → xa</Text>
+        </View>
       </View>
-      {loading ? (
+
+      {!location || locationDenied ? (
+        <View style={styles.emptyBox}>
+          <Feather name="map-pin" size={20} color={COLORS.textMuted} />
+          <Text style={styles.emptyText}>
+            {locationDenied
+              ? "Không thể lấy vị trí. Hãy cấp quyền định vị trong cài đặt."
+              : "Đang xác định vị trí của bạn..."}
+          </Text>
+        </View>
+      ) : loading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="small" color={COLORS.primary} />
           <Text style={styles.loadingText}>Đang tải bệnh viện...</Text>
@@ -195,38 +375,38 @@ const NearbyHospitalScreen = () => {
           <Feather name="alert-circle" size={20} color="#EF4444" />
           <Text style={styles.emptyText}>{error}</Text>
         </View>
-      ) : hospitals.length === 0 ? (
+      ) : listEmpty ? (
         <View style={styles.emptyBox}>
           <Feather name="map-pin" size={20} color={COLORS.textMuted} />
-          <Text style={styles.emptyText}>Không tìm thấy bệnh viện gần bạn</Text>
+          <Text style={styles.emptyText}>Không có bệnh viện nào trong {RADIUS_KM}km</Text>
         </View>
       ) : (
-        hospitals.map((h) => (
+        pagedHospitals.map((h) => (
           <HospitalCard
             key={h.id}
             name={h.name}
             address={h.address}
-            distance={h.distance ? `${h.distance} km` : "Chưa rõ"}
+            distance={typeof h.distance === "number" ? `${h.distance} km` : "Chưa rõ"}
+            onDirection={() => openDirections(h.latitude, h.longitude)}
+            onCall={() => openHospitalCall(h)}
           />
         ))
       )}
-
 
       <View style={styles.emergencyCard}>
         <View style={styles.emergencyIconBox}>
           <Feather name="alert-triangle" size={19} color="#EF4444" />
         </View>
 
-
         <View style={styles.emergencyContent}>
           <Text style={styles.emergencyTitle}>Trường hợp khẩn cấp</Text>
           <Text style={styles.emergencyDesc}>
-            Nếu có dấu hiệu đột quỵ, hãy gọi ngay{" "}
-            <Text style={styles.emergencyPhone}>115</Text> hoặc đến bệnh viện có
-            khoa Cấp cứu 24/7 gần nhất.
+            Nếu có dấu hiệu đột quỵ, hãy gọi ngay <Text style={styles.emergencyPhone}>115</Text> hoặc đến bệnh
+            viện có khoa Cấp cứu 24/7 gần nhất.
           </Text>
         </View>
       </View>
+
       <Pagination
         currentPage={currentPage}
         pages={getPaginationPages(currentPage, totalPages)}
@@ -239,22 +419,6 @@ const NearbyHospitalScreen = () => {
     </UserLayout>
   );
 };
-
-const MapMarker = ({ top, left, right, bottom, distance, color, icon }) => {
-  return (
-    <View style={[styles.markerWrap, { top, left, right, bottom }]}>
-      <Text style={styles.markerDistance}>{distance}</Text>
-
-      <View style={[styles.markerPin, { backgroundColor: color }]}>
-        <Feather name={icon} size={15} color={COLORS.white} />
-      </View>
-
-      <View style={[styles.markerTriangle, { borderTopColor: color }]} />
-    </View>
-  );
-};
-
-
 
 export default NearbyHospitalScreen;
 
@@ -307,131 +471,27 @@ const styles = StyleSheet.create({
     borderColor: "rgba(132,170,216,0.25)",
   },
 
-  gridLineHorizontalOne: {
-    position: "absolute",
-    top: "25%",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  gridLineHorizontalTwo: {
-    position: "absolute",
-    top: "50%",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  gridLineHorizontalThree: {
-    position: "absolute",
-    top: "75%",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  gridLineVerticalOne: {
-    position: "absolute",
-    left: "25%",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  gridLineVerticalTwo: {
-    position: "absolute",
-    left: "50%",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  gridLineVerticalThree: {
-    position: "absolute",
-    left: "75%",
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: "rgba(40,107,194,0.18)",
-  },
-
-  userLocation: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    width: 64,
-    height: 64,
-    marginLeft: -32,
-    marginTop: -32,
+  mapPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 24,
   },
 
-  userPulse: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(40,107,194,0.18)",
+  mapPlaceholderTitle: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.black,
+    textAlign: "center",
   },
 
-  userDot: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 6,
-  },
-
-  markerWrap: {
-    position: "absolute",
-    alignItems: "center",
-  },
-
-  markerDistance: {
-    marginBottom: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: "hidden",
-    backgroundColor: COLORS.black,
-    color: COLORS.white,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  markerPin: {
-    width: 34,
-    height: 38,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  markerTriangle: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderTopWidth: 7,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
+  mapPlaceholderDesc: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.darkGray,
+    textAlign: "center",
   },
 
   mapControls: {
@@ -524,16 +584,40 @@ const styles = StyleSheet.create({
   },
 
   sortText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: COLORS.primary,
+    maxWidth: 140,
   },
 
-  hospitalList: {
-    gap: 12,
+  loadingBox: {
+    paddingVertical: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
+  loadingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: COLORS.darkGray,
+    fontWeight: "600",
+  },
 
+  emptyBox: {
+    paddingVertical: 22,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  emptyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.darkGray,
+    textAlign: "center",
+    fontWeight: "600",
+  },
 
   emergencyCard: {
     marginTop: 16,
